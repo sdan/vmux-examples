@@ -1,98 +1,100 @@
 # vmux examples
 
-Run any command in the cloud. These examples show what's possible with [vmux](https://vmux.sdan.io).
+Run anything in the cloud. These are example scripts for [vmux](https://vmux.sdan.io).
 
-## Setup
+## setup
 
 ```bash
 uv tool install vmux-cli
 vmux login
 ```
 
-## Examples
+## examples
 
-### Hello World
+### hello world
 
 ```bash
 vmux run python hello.py
 ```
 
-5-second test. Prints working directory, lists files, counts to 5.
+5 seconds. prints cwd, lists files, counts to 5. good sanity check.
 
-### Long-running Jobs
+### long-running
 
 ```bash
 vmux run -d python epoch_counter.py
-vmux logs -f <job_id>
 ```
 
-The `-d` flag detaches immediately, returning a job ID. Use `vmux ps` to list running jobs, `vmux attach <id>` to get a terminal.
+detached. close your laptop. job keeps running.
 
-### Web Servers
+```bash
+vmux ps
+vmux logs -f <job_id>
+vmux attach <job_id>
+```
+
+### web servers
 
 ```bash
 vmux run -p 8000 python burrow.py
 ```
 
-Starts a FastAPI server. You get a preview URL like `https://<job_id>.purr.ge` that proxies to port 8000.
+expose a port, get a preview URL. websockets just work.
 
-The burrow demo shows:
-- WebSocket broadcasting
-- Server-Sent Events
-- Real-time metrics dashboard
-- Graceful shutdown
+burrow is a fastapi demo with:
+- websocket broadcasting
+- server-sent events
+- real-time metrics
+- graceful shutdown
 
-### Collaborative Terminal
+### collaborative terminal
 
 ```bash
 vmux run -p 8000 python collab-terminal/server.py
 ```
 
-Share a terminal session. Multiple users connect to the same bash PTY via WebSocket.
+shared bash session. multiple users connect to same PTY via websocket.
 
-### Network Monitoring
+### network probe
 
 ```bash
 vmux run python netprobe.py
 ```
 
-Measures latency, jitter, and packet loss to Cloudflare, Google, AWS endpoints. Runs periodic speed tests.
+measures latency, jitter, packet loss to cloudflare, google, aws. periodic speed tests.
 
-### ML Training
+### ml training
 
 ```bash
 vmux run python train_arithmetic.py
 ```
 
-Teaches a 1B LLM to add numbers via RL. Watch reward climb from ~0.66 to 1.0.
+teaches a 1B LLM to add numbers via RL. watch reward go from ~0.66 → 1.0.
 
 ```bash
 vmux run -d python train_llama.py
 ```
 
-Fine-tunes Llama-3.1-8B on instruction-following. Longer job, run detached.
+fine-tunes llama-3.1-8B. longer job, run detached.
 
-Both require a Tinker API key:
+requires tinker api key:
 ```bash
 vmux secret set TINKER_API_KEY
 ```
 
-## CLI Reference
+## cli
 
 ```
-vmux run [OPTIONS] COMMAND
+vmux run python train.py          # run in the cloud
+vmux run -d python train.py       # detached
+vmux run -p 8000 python server.py # expose port, get preview URL
 
-  -d, --detach      Run in background
-  -p, --port INT    Expose port for preview URL
-  -e, --env K=V     Set environment variable
-
-vmux ps             List running jobs
-vmux logs -f <id>   Follow logs
-vmux attach <id>    Get a terminal
-vmux stop <id>      Kill a job
+vmux ps                           # list jobs
+vmux logs -f <id>                 # follow logs
+vmux attach <id>                  # back in your tmux session
+vmux stop <id>                    # kill it
 ```
 
-## More
+## more
 
-- [vmux docs](https://vmux.sdan.io)
-- [CLI source](https://github.com/sdan/vmux) (coming soon)
+[vmux.sdan.io](https://vmux.sdan.io)
