@@ -32,7 +32,7 @@ The `-d` flag works like Docker - it detaches from the container and lets the jo
 ```bash
 vmux ps                    # like docker ps
 vmux logs -f <job_id>      # like docker logs -f
-vmux attach <job_id>       # like docker attach, but it's tmux
+vmux attach <job_id>       # like docker attach, but it's tmux (may take a few seconds to load)
 vmux stop <job_id>         # like docker stop
 ```
 
