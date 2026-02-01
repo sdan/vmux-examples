@@ -4,6 +4,14 @@
 
 Example scripts for [vmux](https://vmux.sdan.io). Run Python in the cloud.
 
+## Live Demos
+
+| Demo | Description | Link |
+|------|-------------|------|
+| Waves | ASCII ocean wave simulation | [open →](https://5173-ckrg0tshpstd-grszfge07qzex0vs.purr.ge/) |
+| Collaborative Terminal | Shared tmux session via WebSocket | [open →](https://8000-9ii8vaarhm17-hpgjqk5c9egad7ws.purr.ge/) |
+| Burrow | Real-time dashboard with WebSocket updates | [open →](https://8000-uoxb00fa82kg-2li195kkiemsefia.purr.ge/) |
+
 ## Setup
 
 ```bash
@@ -12,6 +20,16 @@ vmux login
 ```
 
 ## Examples
+
+### Waves (React/Vite)
+
+<img src="waves/demo.png" width="100%" />
+
+```bash
+cd waves && vmux run -dp 5173 bun run dev
+```
+
+Real-time ASCII ocean wave simulation with physics models: trochoidal, spectrum, basin, and tsunami. Scroll to adjust speed and direction.
 
 ### Hello World
 

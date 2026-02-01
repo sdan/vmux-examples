@@ -1,0 +1,28 @@
+{
+  "name": "keepalive-test",
+  "main": "keepalive-test.ts",
+  "compatibility_date": "2024-12-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "Sandbox",
+        "class_name": "Sandbox"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["Sandbox"]
+    }
+  ],
+  "containers": [
+    {
+      "class_name": "Sandbox",
+      "image": "cloudflare/sandbox:0.6.10",
+      "max_instances": 10,
+      "instance_type": "basic"
+    }
+  ]
+}

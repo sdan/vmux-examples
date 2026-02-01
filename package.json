@@ -1,0 +1,23 @@
+{
+  "name": "vmux-examples",
+  "version": "1.0.0",
+  "description": "<img src=\"og.png\" width=\"100%\" />",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sdan/vmux-examples.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/sdan/vmux-examples/issues"
+  },
+  "homepage": "https://github.com/sdan/vmux-examples#readme",
+  "dependencies": {
+    "@cloudflare/sandbox": "^0.6.10"
+  }
+}
