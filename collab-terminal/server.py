@@ -19,7 +19,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 
-app = FastAPI(title="Collaborative Terminal")
+app = FastAPI(title="vmux Terminal")
 
 # Connected clients per room
 rooms: Dict[str, Set[WebSocket]] = {}
@@ -32,7 +32,8 @@ HTML_PAGE = """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Collaborative Terminal</title>
+    <title>vmux Terminal</title>
+    <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNiAxNiIgc2hhcGUtcmVuZGVyaW5nPSJjcmlzcEVkZ2VzIj48cmVjdCB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIGZpbGw9IiMwZjExMTUiLz48cmVjdCB4PSI0IiB5PSIwIiB3aWR0aD0iMiIgaGVpZ2h0PSIxIiBmaWxsPSIjZjVmNWY0Ii8+PHJlY3QgeD0iNCIgeT0iMSIgd2lkdGg9IjIiIGhlaWdodD0iMSIgZmlsbD0iI2Y1ZjVmNCIvPjxyZWN0IHg9IjQiIHk9IjIiIHdpZHRoPSIyIiBoZWlnaHQ9IjEiIGZpbGw9IiNmNWY1ZjQiLz48cmVjdCB4PSI0IiB5PSIzIiB3aWR0aD0iMiIgaGVpZ2h0PSIxIiBmaWxsPSIjZjVmNWY0Ii8+PHJlY3QgeD0iNSIgeT0iMiIgd2lkdGg9IjEiIGhlaWdodD0iMiIgZmlsbD0iI2ZlY2FjYSIvPjxyZWN0IHg9IjEwIiB5PSIwIiB3aWR0aD0iMiIgaGVpZ2h0PSIxIiBmaWxsPSIjZjVmNWY0Ii8+PHJlY3QgeD0iMTAiIHk9IjEiIHdpZHRoPSIyIiBoZWlnaHQ9IjEiIGZpbGw9IiNmNWY1ZjQiLz48cmVjdCB4PSIxMCIgeT0iMiIgd2lkdGg9IjIiIGhlaWdodD0iMSIgZmlsbD0iI2Y1ZjVmNCIvPjxyZWN0IHg9IjEwIiB5PSIzIiB3aWR0aD0iMiIgaGVpZ2h0PSIxIiBmaWxsPSIjZjVmNWY0Ii8+PHJlY3QgeD0iMTAiIHk9IjIiIHdpZHRoPSIxIiBoZWlnaHQ9IjIiIGZpbGw9IiNmZWNhY2EiLz48cmVjdCB4PSI0IiB5PSI0IiB3aWR0aD0iOCIgaGVpZ2h0PSIyIiBmaWxsPSIjZjVmNWY0Ii8+PHJlY3QgeD0iMyIgeT0iNiIgd2lkdGg9IjEwIiBoZWlnaHQ9IjQiIGZpbGw9IiNmNWY1ZjQiLz48cmVjdCB4PSI0IiB5PSIxMCIgd2lkdGg9IjgiIGhlaWdodD0iMiIgZmlsbD0iI2Y1ZjVmNCIvPjxyZWN0IHg9IjUiIHk9IjEyIiB3aWR0aD0iNiIgaGVpZ2h0PSIxIiBmaWxsPSIjZjVmNWY0Ii8+PHJlY3QgeD0iNSIgeT0iNyIgd2lkdGg9IjIiIGhlaWdodD0iMiIgZmlsbD0iIzFmMjkzNyIvPjxyZWN0IHg9IjkiIHk9IjciIHdpZHRoPSIyIiBoZWlnaHQ9IjIiIGZpbGw9IiMxZjI5MzciLz48cmVjdCB4PSI1IiB5PSI3IiB3aWR0aD0iMSIgaGVpZ2h0PSIxIiBmaWxsPSIjZmZmIi8+PHJlY3QgeD0iOSIgeT0iNyIgd2lkdGg9IjEiIGhlaWdodD0iMSIgZmlsbD0iI2ZmZiIvPjxyZWN0IHg9IjciIHk9IjEwIiB3aWR0aD0iMiIgaGVpZ2h0PSIxIiBmaWxsPSIjZmNhNWE1Ii8+PC9zdmc+">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
     <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
@@ -79,7 +80,7 @@ HTML_PAGE = """
 <body>
     <header>
         <div>
-            <h1>🐱 Collaborative Terminal</h1>
+            <h1>🐰 vmux Terminal</h1>
             <div class="info">Powered by vmux + purr.ge</div>
         </div>
         <div class="users">
@@ -281,6 +282,8 @@ async def broadcast_users(room_id: str):
 
 
 if __name__ == "__main__":
-    print("Starting Collaborative Terminal on port 8000...")
+    port = int(os.environ.get("PORT", "8000"))
+    print(f"Starting Collaborative Terminal on port {port}...")
     print("Share this terminal with others using your preview URL!")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    print(f"[vmux:ready] http://0.0.0.0:{port}")
+    uvicorn.run(app, host="0.0.0.0", port=port)

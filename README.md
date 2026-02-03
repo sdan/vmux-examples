@@ -1,16 +1,6 @@
 # vmux examples
 
-<img src="og.png" width="100%" />
-
-Example scripts for [vmux](https://vmux.sdan.io). Run Python in the cloud.
-
-## Live Demos
-
-| Demo | Description | Link |
-|------|-------------|------|
-| Waves | ASCII ocean wave simulation | [open →](https://5173-ckrg0tshpstd-grszfge07qzex0vs.purr.ge/) |
-| Collaborative Terminal | Shared tmux session via WebSocket | [open →](https://8000-9ii8vaarhm17-hpgjqk5c9egad7ws.purr.ge/) |
-| Burrow | Real-time dashboard with WebSocket updates | [open →](https://8000-uoxb00fa82kg-2li195kkiemsefia.purr.ge/) |
+Small, fast examples you can read in a minute and run in a second.
 
 ## Setup
 
@@ -19,101 +9,182 @@ uv tool install vmux-cli
 vmux login
 ```
 
+## Quick start
+
+```bash
+# Hello world
+vmux run python hello.py
+
+# Web server with preview URL
+vmux run -dp 8000 python web_server.py
+
+# GPU compute (Modal)
+vmux run --provider modal --gpu T4 python gpu_hello.py
+```
+
 ## Examples
 
-### Waves (React/Vite)
+All web servers honor `PORT`, so `-p/-dp` works everywhere.
 
-<img src="waves/demo.png" width="100%" />
+### Cloudflare (fast start)
 
-```bash
-cd waves && vmux run -dp 5173 bun run dev
-```
+| Example | What it is | Command |
+|---------|------------|---------|
+| `hello.py` | Sanity check | `vmux run python hello.py` |
+| `web_server.py` | FastAPI hello + preview URL | `vmux run -dp 8000 python web_server.py` |
+| `background_job.py` | Long-running logs | `vmux run -d python background_job.py` |
+| `burrow.py` | WebSocket + SSE dashboard | `vmux run -dp 8000 python burrow.py` |
+| `collab-terminal/` | Shared terminal over WS | `vmux run -dp 8000 python collab-terminal/server.py` |
+| `gradio_chat.py` | Gradio UI | `vmux run -dp 7860 python gradio_chat.py` |
+| `waves/` | Bun + Vite demo | `cd waves && vmux run -dp 5173 bun run dev` |
 
-Real-time ASCII ocean wave simulation with physics models: trochoidal, spectrum, basin, and tsunami. Scroll to adjust speed and direction.
+### Modal (GPU + heavy deps)
 
-### Hello World
+| Example | What it is | Command |
+|---------|------------|---------|
+| `gpu_hello.py` | CUDA sanity check | `vmux run --provider modal --gpu T4 python gpu_hello.py` |
+| `vllm_server.py` | OpenAI-compatible API | `vmux run --provider modal --gpu A10G -dp 8080 python vllm_server.py` |
+| `whisper_api.py` | Audio transcription | `vmux run --provider modal --gpu T4 -dp 8000 python whisper_api.py` |
+| `embeddings_api.py` | RAG embeddings | `vmux run --provider modal --gpu T4 -dp 8000 python embeddings_api.py` |
+| `image_gen.py` | SDXL Turbo | `vmux run --provider modal --gpu A10G -dp 8000 python image_gen.py` |
+| `ollama_chat.py` | Local Llama (Ollama) | `vmux run --provider modal --gpu T4 python ollama_chat.py` |
+| `jupyter.py` | JupyterLab | `vmux run --provider modal -dp 8888 python jupyter.py` |
+| `llm-chat/` | Full-stack LLM chat | See `llm-chat/README.md` |
 
-```bash
-vmux run python hello.py
-```
+## Patterns
 
-A 5-second sanity check that prints the working directory, lists files, and counts to 5. Good for verifying your setup works.
+### Preview URLs
 
-### Long-running Jobs
-
-```bash
-vmux run -d python epoch_counter.py
-```
-
-The `-d` flag works like Docker - it detaches from the container and lets the job run in the background. You can close your laptop and the job keeps running.
-
-```bash
-vmux ps                    # like docker ps
-vmux logs -f <job_id>      # like docker logs -f
-vmux attach <job_id>       # like docker attach, but it's tmux (may take a few seconds to load)
-vmux stop <job_id>         # like docker stop
-```
-
-### Web Servers
+Expose a port to get a public URL:
 
 ```bash
-vmux run -p 8000 python burrow.py
-vmux run -dp 8000 python burrow.py  # detached + port
+vmux run -p 8000 python server.py          # attached
+vmux run -dp 8000 python server.py         # detached
 ```
 
-The `-p` flag exposes a port and gives you a preview URL like `https://<job_id>.purr.ge`. WebSockets are proxied automatically.
+The preview URL shows a loading page with live logs until your server starts.
 
-Burrow is a production-style FastAPI demo that shows WebSocket broadcasting, Server-Sent Events, a real-time metrics dashboard, and graceful shutdown handling.
+### Detached jobs
 
-### Collaborative Terminal
+Run in background, check later:
 
 ```bash
-vmux run -p 8000 python collab-terminal/server.py
+vmux run -d python train.py     # start
+vmux ps                         # list jobs
+vmux logs -f <id>               # follow logs
+vmux attach <id>                # interactive tmux
+vmux stop <id>                  # stop
 ```
 
-A shared bash session where multiple users connect to the same PTY via WebSocket. Anyone with the preview URL can join and type commands.
+### Run vs attach
 
-### Network Probe
+`vmux run` starts a job and creates a tmux session in the sandbox.  
+`vmux attach <id>` connects to **that same session** for interactive work.
 
 ```bash
-vmux run python netprobe.py
+# Start a server
+vmux run -dp 8000 python web_server.py
+
+# Later, attach to the same tmux session
+vmux attach <job_id>
 ```
 
-A network analytics tool that measures latency, jitter, and packet loss to Cloudflare, Google, and AWS endpoints. It runs periodic speed tests and displays results in a live dashboard.
+### Session mode (LLM / automation)
 
-### ML Training
+Machine‑readable JSON events for Claude/Codex tool use:
 
 ```bash
-vmux run python train_arithmetic.py
+vmux session run --json -dp 8000 python web_server.py
+vmux session logs --json <job_id> --offset 0
+vmux session exec --json "python -c \"print(1+1)\""
+vmux session stop <job_id>
 ```
 
-Teaches a 1B-parameter LLM to add numbers using reinforcement learning. You can watch the reward climb from ~0.66 to 1.0 as the model learns.
+Note: `vmux session --json` is machine‑readable and does **not** attach to tmux.  
+For interactive shells, use `vmux attach <job_id>`.
+
+#### Claude Code / Codex CLI example
+
+Use `vmux session --json` as the external executor from your LLM loop:
 
 ```bash
-vmux run -d python train_llama.py
+# 1) Start a job (JSON events)
+vmux session run --json -dp 8000 python web_server.py
+
+# 2) Stream logs with offsets (for the LLM to track progress)
+vmux session logs --json <job_id> --offset 0
+
+# 3) Execute a command inside the same job
+vmux session exec --json "python -c \"print('hello from vmux')\""
+
+# 4) Stop when done
+vmux session stop <job_id>
 ```
 
-Fine-tunes Llama-3.1-8B on instruction-following. This is a longer job so you'll want to run it detached.
+Legacy: `vmux tool` is still available as a hidden alias.
 
-Both examples require a Tinker API key:
+### GPU selection
+
 ```bash
-vmux secret set TINKER_API_KEY
+vmux run --provider modal --gpu T4 python script.py    # 16GB, budget
+vmux run --provider modal --gpu L4 python script.py    # 24GB, balanced
+vmux run --provider modal --gpu A10G python script.py  # 24GB, fast
+vmux run --provider modal --gpu A100 python script.py  # 80GB, training
+vmux run --provider modal --gpu H100 python script.py  # 80GB, fastest
 ```
 
-## CLI Reference
+### Snapshot cache (Modal)
 
-```
-vmux run python train.py          # like uv run, but in the cloud
-vmux run -d python train.py       # detached, like docker -d
-vmux run -p 8000 python server.py # expose port, get preview URL
-vmux run -dp 8000 python server.py # detached + port
-
-vmux ps                           # list running containers
-vmux logs -f <id>                 # follow logs
-vmux attach <id>                  # back in your tmux session
-vmux stop <id>                    # stop container
+```bash
+# Cache deps after a successful run
+vmux run --provider modal --cache python vllm_server.py
 ```
 
-## More
+### Environment variables
 
-See [vmux.sdan.io](https://vmux.sdan.io) for documentation.
+```bash
+# Pass env vars
+vmux run -e API_KEY=xxx python script.py
+
+# Use secrets (stored in keychain)
+vmux secret set HF_TOKEN
+vmux run --provider modal python script.py  # HF_TOKEN available
+```
+
+## Stage markers
+
+Add markers to your scripts for cleaner vmux output:
+
+```python
+print("[vmux:stage] loading")      # start a stage
+print("[vmux:stage:done] loading") # end a stage
+print("[vmux:ready] http://...")   # signal ready
+```
+
+## API usage
+
+After starting `vllm_server.py`:
+
+```bash
+curl https://<preview-url>/v1/chat/completions \
+  -H "Authorization: Bearer vmux" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "NousResearch/Meta-Llama-3-8B-Instruct",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+```
+
+After starting `whisper_api.py`:
+
+```bash
+curl -X POST https://<preview-url>/transcribe -F "file=@audio.mp3"
+```
+
+After starting `embeddings_api.py`:
+
+```bash
+curl -X POST https://<preview-url>/embed \
+  -H "Content-Type: application/json" \
+  -d '{"texts": ["hello", "world"]}'
+```

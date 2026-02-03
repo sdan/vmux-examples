@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
-"""Simple test script for vmux."""
+"""
+Hello World - verify vmux is working.
+
+    vmux run python hello.py
+    vmux run --provider modal python hello.py
+"""
 
 import os
 import time
 
-print("🚀 Hello from vmux!")
-print(f"   Working dir: {os.getcwd()}")
-print(f"   Files here: {os.listdir('.')}")
+print("vmux hello world")
+print(f"  cwd: {os.getcwd()}")
+print(f"  provider: {os.environ.get('VMUX_PROVIDER', 'cloudflare')}")
 print()
 
-for i in range(5):
-    print(f"   Count: {i+1}/5")
+for i in range(3):
+    print(f"  tick {i+1}/3")
     time.sleep(1)
 
-print()
-print("✅ Done!")
+print("\ndone")

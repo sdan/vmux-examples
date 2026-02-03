@@ -864,8 +864,9 @@ def handle_signal(signum, frame):
 if __name__ == "__main__":
     signal.signal(signal.SIGTERM, handle_signal)
     signal.signal(signal.SIGINT, handle_signal)
+    port = int(os.environ.get("PORT", "8000"))
 
-    print(r"""
+    print(rf"""
     ╔═══════════════════════════════════════════════════════════════╗
     ║                                                               ║
     ║   🐰 Burrow - Real-time Data Processing Demo                 ║
@@ -879,8 +880,8 @@ if __name__ == "__main__":
     ║                                                               ║
     ╠═══════════════════════════════════════════════════════════════╣
     ║                                                               ║
-    ║   🌐 HTTP:  http://0.0.0.0:8000                              ║
-    ║   📡 WS:    ws://0.0.0.0:8000/ws                             ║
+    ║   🌐 HTTP:  http://0.0.0.0:{port:<4}                          ║
+    ║   📡 WS:    ws://0.0.0.0:{port:<4}/ws                         ║
     ║   📊 API:   /api/health, /api/metrics, /api/market           ║
     ║   📺 SSE:   /api/stream                                      ║
     ║                                                               ║
@@ -890,10 +891,11 @@ if __name__ == "__main__":
     ╚═══════════════════════════════════════════════════════════════╝
     """)
 
+    print(f"[vmux:ready] http://0.0.0.0:{port}")
     uvicorn.run(
         app,
         host="0.0.0.0",
-        port=8000,
+        port=port,
         log_level="info",
         access_log=True,
     )
