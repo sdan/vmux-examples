@@ -5,135 +5,133 @@ description: Deploy to vmux cloud compute. Use when user says "deploy", "vmux", 
 
 # vmux — Cloud Compute for Agents
 
-Run any command in the cloud. Close your laptop, keep running. GPU in one flag.
+Run any command in the cloud. GPU in one flag.
 
-## Quick Reference
+**IMPORTANT: Always use `vmux session` commands (not `vmux run` or `vmux logs`).** The session API returns machine-readable JSON that you can parse. Never use `vmux run`, `vmux logs -f`, or `vmux attach` — those are interactive commands for humans.
 
-```bash
-vmux session run --json -dp 8000 python server.py   # Start job, get JSON
-vmux session logs --json <job_id> --offset 0        # Poll logs
-vmux session exec --json <job_id> "ls -la"          # Run command in job
-vmux session stop <job_id>                          # Stop job
-```
-
-## Session API (Machine-Readable)
-
-Use `vmux session --json` for structured output. Every command returns JSON.
-
-### Start a Job
+## Commands (Always Use These)
 
 ```bash
-vmux session run --json [flags] <command>
+vmux session run --json -d [flags] <command>    # Start job → returns JSON
+vmux session logs --json <job_id> --offset <n>  # Poll logs → returns JSON
+vmux session exec --json <job_id> "<cmd>"       # Run command → returns JSON
+vmux session stop <job_id>                      # Stop job
+vmux ps                                         # List jobs
 ```
+
+## Start a Job
+
+```bash
+vmux session run --json -d [flags] <command>
+```
+
+**Always include `-d` (detach) with session commands.**
 
 **Flags:**
-| Flag | Short | Description |
-|------|-------|-------------|
-| `--detach` | `-d` | Run in background (always use for sessions) |
-| `--port <port>` | `-p` | Expose port for preview URL |
-| `--env KEY=VAL` | `-e` | Set environment variable |
-| `--provider modal` | | Use Modal for GPU access |
-| `--gpu <type>` | | GPU type: T4, L4, A10G, A100, H100 |
+| Flag | Description |
+|------|-------------|
+| `-d` | Detach (required for session API) |
+| `-p <port>` | Expose port for preview URL |
+| `-e KEY=VAL` | Set environment variable |
+| `--provider modal` | Use Modal for GPU |
+| `--gpu <type>` | GPU: T4, L4, A10G, A100, H100 |
+
+**Example:**
+```bash
+vmux session run --json -d -p 8000 --provider modal --gpu A10G python server.py
+```
 
 **Response:**
 ```json
 {"event":"job_started","job_id":"abc123","preview_urls":{"8000":"https://8000-abc123-token.purr.ge"}}
 ```
 
-### Poll Logs
+## Poll Logs
 
 ```bash
 vmux session logs --json <job_id> --offset <n>
 ```
 
-Returns logs since byte offset. Track `offset` to avoid duplicates.
+Track `offset` between calls to get only new logs. Start with `--offset 0`.
 
 **Response:**
 ```json
-{"logs":"Starting server...\n","offset":42,"truncated":false}
+{"logs":"Installing dependencies...\n","offset":142,"truncated":false}
 ```
 
-### Execute Command
+## Execute Command in Sandbox
 
 ```bash
 vmux session exec --json <job_id> "<command>"
 ```
-
-Run a command inside the running job's sandbox.
 
 **Response:**
 ```json
 {"stdout":"hello\n","stderr":"","exit_code":0}
 ```
 
-### Stop Job
+## Stop Job
 
 ```bash
 vmux session stop <job_id>
 ```
 
-### List Jobs
+## GPU Tiers
 
 ```bash
-vmux ps --json
-```
-
-## GPU Access (Modal)
-
-```bash
-# T4: 16GB, budget inference
-vmux session run --json -dp 8000 --provider modal --gpu T4 python inference.py
-
-# A10G: 24GB, production inference (required for gpt-oss, llama-70b)
-vmux session run --json -dp 8000 --provider modal --gpu A10G python llm_server.py
-
-# A100: 80GB, training
-vmux session run --json -dp 8000 --provider modal --gpu A100 python train.py
+--gpu T4      # 16GB, budget inference
+--gpu A10G    # 24GB, production (use for LLMs like gpt-oss, llama-70b)
+--gpu A100    # 80GB, training
+--gpu H100    # 80GB, fastest
 ```
 
 ## Lifecycle Pattern
 
 ```python
-# 1. Start job
-result = shell("vmux session run --json -dp 8000 python server.py")
-job_id = json.loads(result)["job_id"]
-preview_url = json.loads(result)["preview_urls"]["8000"]
+import json, subprocess
 
-# 2. Poll until ready (check for "Uvicorn running" or similar)
+def shell(cmd):
+    return subprocess.check_output(cmd, shell=True, text=True)
+
+# 1. Start job
+result = json.loads(shell("vmux session run --json -d -p 8000 python server.py"))
+job_id = result["job_id"]
+preview_url = result.get("preview_urls", {}).get("8000")
+
+# 2. Poll logs until ready
 offset = 0
+ready = False
 while not ready:
-    logs = shell(f"vmux session logs --json {job_id} --offset {offset}")
-    data = json.loads(logs)
-    offset = data["offset"]
-    if "running on" in data["logs"].lower():
+    time.sleep(2)
+    logs = json.loads(shell(f"vmux session logs --json {job_id} --offset {offset}"))
+    offset = logs["offset"]
+    print(logs["logs"], end="")
+    if "running on" in logs["logs"].lower() or "uvicorn" in logs["logs"].lower():
         ready = True
 
-# 3. Use the preview URL
-response = requests.get(preview_url)
+# 3. Use preview URL or exec commands
+shell(f'vmux session exec --json {job_id} "nvidia-smi"')
 
-# 4. Execute commands in sandbox if needed
-shell(f'vmux session exec --json {job_id} "pip install newpackage"')
-
-# 5. Stop when done
+# 4. Stop when done
 shell(f"vmux session stop {job_id}")
 ```
 
-## Human Commands (Interactive)
-
-For interactive use (not in agent loops):
+## Example: Train nanoGPT on H100
 
 ```bash
-vmux run -dp 8000 python server.py   # Deploy, stream logs
-vmux logs -f <job_id>                # Follow logs
-vmux attach <job_id>                 # Interactive tmux (Ctrl+B,D to detach)
-vmux stop <job_id>                   # Stop job
-vmux ps                              # List jobs
+# Start training job
+vmux session run --json -d --provider modal --gpu H100 "bash -c 'pip install torch numpy transformers datasets tiktoken wandb tqdm && git clone https://github.com/karpathy/nanoGPT && cd nanoGPT && python data/shakespeare_char/prepare.py && python train.py config/train_shakespeare_char.py'"
+
+# Poll logs (repeat with updated offset)
+vmux session logs --json <job_id> --offset 0
+
+# Stop when done
+vmux session stop <job_id>
 ```
 
-## After Deploy
+## DO NOT USE
 
-Always report:
-1. **Preview URL**: `https://8000-<job_id>-<token>.purr.ge`
-2. **Job ID**: For logs/stop/attach
-3. **Monitor**: `vmux logs -f <job_id>`
-4. **Stop**: `vmux stop <job_id>`
+These commands are for humans only, not agents:
+- ❌ `vmux run` (use `vmux session run --json -d`)
+- ❌ `vmux logs -f` (use `vmux session logs --json`)
+- ❌ `vmux attach` (interactive terminal, not for agents)
