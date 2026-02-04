@@ -1,59 +1,45 @@
 # vmux LLM Chat
 
-A clean, minimal chat interface for open-source LLMs.
-
-**Frontend**: Next.js (deploy to Vercel)
-**Backend**: vLLM on GPU (deploy via vmux)
+Full-stack LLM chat with vLLM backend and web UI — one command.
 
 ## Quick Start
 
-### 1. Start the backend
+```bash
+vmux run --provider modal --gpu A10G -dp 8000 python main.py
+```
+
+Opens a chat UI at the preview URL. Default model: `openai/gpt-oss-20b`.
+
+> **Note**: GPT-OSS uses MXFP4 quantization which requires compute capability 8.0+. Use A10G or A100, not T4.
+
+## Other Models
 
 ```bash
-# From this directory
-vmux run --provider modal --gpu A10G -dp 8000 python backend.py
+# GPT-OSS 20B (default) - requires A10G/A100
+vmux run --provider modal --gpu A10G -dp 8000 python main.py
 
-# Or with a different model
-vmux run --provider modal --gpu A100 -dp 8000 -e MODEL=meta-llama/Llama-3.1-70B-Instruct python backend.py
-```
+# Qwen 2.5 3B (works on T4, fast load)
+vmux run --provider modal --gpu T4 -dp 8000 -e MODEL=Qwen/Qwen2.5-3B-Instruct python main.py
 
-Copy the preview URL (e.g., `https://8000-<job>-<token>.purr.ge`).
-
-### 2. Run the frontend
-
-```bash
-npm install
-npm run dev
-```
-
-Open http://localhost:3000 and paste your backend URL.
-
-### 3. Deploy frontend to Vercel
-
-```bash
-npx vercel
-```
-
-## Architecture
-
-```
-┌─────────────────┐      ┌─────────────────┐
-│  Next.js (Vercel) │ ──→ │  vLLM (vmux)    │
-│  - Chat UI       │      │  - OpenAI API   │
-│  - Streaming     │      │  - GPU compute  │
-└─────────────────┘      └─────────────────┘
+# Llama 3.1 70B (large, needs A100)
+vmux run --provider modal --gpu A100 -dp 8000 -e MODEL=meta-llama/Llama-3.1-70B-Instruct python main.py
 ```
 
 ## Environment Variables
 
-**Backend** (`backend.py`):
-- `MODEL` - HuggingFace model ID (default: `NousResearch/Meta-Llama-3-8B-Instruct`)
+- `MODEL` - HuggingFace model ID (default: `openai/gpt-oss-20b`)
 - `PORT` - Server port (default: `8000`)
 
-## Models
+## Architecture
 
-| Model | GPU | Command |
-|-------|-----|---------|
-| Llama 3 8B | A10G | `vmux run --gpu A10G -dp 8000 python backend.py` |
-| Llama 3.1 70B | A100 | `vmux run --gpu A100 -dp 8000 -e MODEL=meta-llama/Llama-3.1-70B-Instruct python backend.py` |
-| Mistral 7B | T4 | `vmux run --gpu T4 -dp 8000 -e MODEL=mistralai/Mistral-7B-Instruct-v0.3 python backend.py` |
+```
+┌─────────────────────────────────────┐
+│  main.py                            │
+│  ├─ FastAPI (port 8000)             │
+│  │   └─ Chat UI (HTML/JS)           │
+│  └─ vLLM (port 8080, internal)      │
+│       └─ OpenAI-compatible API      │
+└─────────────────────────────────────┘
+```
+
+Everything runs in one process — no separate frontend/backend deploy.

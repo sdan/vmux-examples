@@ -43,13 +43,13 @@ All web servers honor `PORT`, so `-p/-dp` works everywhere.
 | Example | What it is | Command |
 |---------|------------|---------|
 | `gpu_hello.py` | CUDA sanity check | `vmux run --provider modal --gpu T4 python gpu_hello.py` |
+| `jupyter.py` | JupyterLab (torch/jax baked in) | `vmux run --provider modal --gpu T4 -dp 8888 python jupyter.py` |
+| `llm-chat/` | GPT-OSS chat UI (A10G+) | `vmux run --provider modal --gpu A10G -dp 8000 python llm-chat/main.py` |
 | `vllm_server.py` | OpenAI-compatible API | `vmux run --provider modal --gpu A10G -dp 8080 python vllm_server.py` |
 | `whisper_api.py` | Audio transcription | `vmux run --provider modal --gpu T4 -dp 8000 python whisper_api.py` |
 | `embeddings_api.py` | RAG embeddings | `vmux run --provider modal --gpu T4 -dp 8000 python embeddings_api.py` |
 | `image_gen.py` | SDXL Turbo | `vmux run --provider modal --gpu A10G -dp 8000 python image_gen.py` |
-| `ollama_chat.py` | Local Llama (Ollama) | `vmux run --provider modal --gpu T4 python ollama_chat.py` |
-| `jupyter.py` | JupyterLab | `vmux run --provider modal -dp 8888 python jupyter.py` |
-| `llm-chat/` | Full-stack LLM chat | See `llm-chat/README.md` |
+| `ollama_chat.py` | Ollama + Llama | `vmux run --provider modal --gpu T4 python ollama_chat.py` |
 
 ## Patterns
 
@@ -161,16 +161,48 @@ print("[vmux:stage:done] loading") # end a stage
 print("[vmux:ready] http://...")   # signal ready
 ```
 
+## Agent Skills (Claude Code / Codex)
+
+Teach your AI coding assistant to use vmux:
+
+### Claude Code
+
+```bash
+cp -r claude/skills/vmux ~/.claude/skills/vmux
+```
+
+Then just say "deploy this with a GPU" and Claude handles the rest.
+
+### OpenAI Codex
+
+```bash
+cp -r codex/skills/vmux ~/.agents/skills/vmux
+```
+
+Then say "run this in the cloud" or invoke with `$vmux`.
+
+### What the Skill Teaches
+
+The skill includes the full session API for machine-readable output:
+
+```bash
+vmux session run --json -dp 8000 --provider modal --gpu A10G python app.py
+vmux session logs --json <job_id> --offset 0
+vmux session exec --json <job_id> "nvidia-smi"
+vmux session stop <job_id>
+```
+
+See [claude/README.md](claude/README.md) or [codex/README.md](codex/README.md) for details.
+
 ## API usage
 
-After starting `vllm_server.py`:
+After starting `vllm_server.py` or `llm-chat/`:
 
 ```bash
 curl https://<preview-url>/v1/chat/completions \
-  -H "Authorization: Bearer vmux" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "NousResearch/Meta-Llama-3-8B-Instruct",
+    "model": "default",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
 ```
