@@ -4,7 +4,7 @@ node_modules/
 # Build outputs
 dist/
 .next/
-out/
+# out/ - keep committed for single-command deployment
 
 # Cache
 .cache/

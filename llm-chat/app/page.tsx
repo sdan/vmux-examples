@@ -1,73 +1,123 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, memo } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 interface Message {
   id: number
   text: string
   role: 'user' | 'assistant'
-  isLoading?: boolean
+  isStreaming?: boolean
   elapsedMs?: number
+  tokenCount?: number
 }
 
-const MODELS = [
-  { id: 'llama-8b', name: 'Llama 3 8B' },
-  { id: 'mistral-7b', name: 'Mistral 7B' },
-]
+interface HealthStatus {
+  ready: boolean
+  model: string
+  stage?: string
+}
 
 const SUGGESTIONS = [
-  'Explain quantum computing simply',
-  'Write a haiku about coding',
-  'What is the meaning of life?',
+  'Explain how transformers work',
+  'Write a Python quicksort',
+  'What makes a good API?',
 ]
 
-const STORAGE_KEY = 'vmux-chat-backend'
+const API_BASE = ''
+
+// Memoized message bubble
+const MessageBubble = memo(function MessageBubble({
+  msg,
+  elapsedSeconds,
+  onCopy
+}: {
+  msg: Message
+  elapsedSeconds?: number
+  onCopy: (text: string) => void
+}) {
+  const isLoading = msg.isStreaming && !msg.text
+
+  return (
+    <div className={msg.role === 'user' ? 'row-right' : 'row-left'}>
+      <div className={`bubble ${msg.role}${isLoading ? ' loading' : ''}`}>
+        {isLoading ? (
+          <div className="loading-content">
+            <div className="loading-text">
+              <span className="shimmer">Thinking...</span>
+              <span>{elapsedSeconds}s</span>
+            </div>
+            <div className="progress-bar">
+              <div
+                className="progress-fill"
+                style={{ width: `${Math.min(95, (1 - Math.exp(-(elapsedSeconds || 0) / 60)) * 100)}%` }}
+              />
+            </div>
+          </div>
+        ) : msg.isStreaming ? (
+          <span>{msg.text}</span>
+        ) : msg.role === 'assistant' ? (
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
+        ) : (
+          msg.text
+        )}
+      </div>
+      {!msg.isStreaming && msg.role === 'assistant' && msg.elapsedMs && (
+        <div className="msg-footer">
+          <span className="elapsed">
+            {(msg.elapsedMs / 1000).toFixed(1)}s
+            {msg.tokenCount && ` · ${(msg.tokenCount / (msg.elapsedMs / 1000)).toFixed(1)} tok/s`}
+          </span>
+          <button className="copy-btn" onClick={() => onCopy(msg.text)}>
+            Copy
+          </button>
+        </div>
+      )}
+    </div>
+  )
+})
 
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
-  const [selectedModel, setSelectedModel] = useState('llama-8b')
-  const [backendUrl, setBackendUrl] = useState('')
-  const [showBackendModal, setShowBackendModal] = useState(false)
-  const [backendInput, setBackendInput] = useState('')
-  const [backendReady, setBackendReady] = useState(false)
+  const [health, setHealth] = useState<HealthStatus | null>(null)
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLTextAreaElement>(null)
-  const isSubmittingRef = useRef(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const startTimeRef = useRef<number | null>(null)
 
-  // Load backend URL from localStorage
+  // Health check polling
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) {
-      setBackendUrl(saved)
-      setBackendInput(saved)
-    }
-  }, [])
-
-  // Check backend health
-  useEffect(() => {
-    if (!backendUrl) {
-      setBackendReady(false)
-      return
-    }
-
     const checkHealth = async () => {
       try {
-        const res = await fetch(`${backendUrl}/health`, { method: 'GET' })
+        const res = await fetch(`${API_BASE}/health`)
         const data = await res.json()
-        setBackendReady(data.ready === true)
+        setHealth(data)
       } catch {
-        setBackendReady(false)
+        setHealth(null)
       }
     }
 
     checkHealth()
-    const interval = setInterval(checkHealth, 5000)
+    const interval = setInterval(checkHealth, 3000)
     return () => clearInterval(interval)
-  }, [backendUrl])
+  }, [])
 
+  // Focus input on mount and when health becomes ready
+  useEffect(() => {
+    inputRef.current?.focus()
+  }, [])
+
+  useEffect(() => {
+    if (health?.ready) {
+      inputRef.current?.focus()
+    }
+  }, [health?.ready])
+
+  // Auto-scroll
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [])
@@ -76,28 +126,29 @@ export default function Home() {
     scrollToBottom()
   }, [messages, scrollToBottom])
 
+  // Timer for elapsed seconds
   useEffect(() => {
-    inputRef.current?.focus()
-  }, [])
-
-  // Auto-resize textarea
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value)
-    e.target.style.height = 'auto'
-    e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px'
-  }
-
-  const sendMessage = async (text?: string) => {
-    const messageText = text || input
-    if (!messageText.trim()) return
-    if (isSubmittingRef.current) return
-    if (!backendUrl) {
-      setShowBackendModal(true)
+    if (!isGenerating) {
+      setElapsedSeconds(0)
       return
     }
 
-    isSubmittingRef.current = true
+    const interval = setInterval(() => {
+      if (startTimeRef.current) {
+        setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current) / 1000))
+      }
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [isGenerating])
+
+  const sendMessage = async (text?: string) => {
+    const messageText = text || input
+    if (!messageText.trim() || isGenerating || !health?.ready) return
+
     setIsGenerating(true)
+    startTimeRef.current = Date.now()
+    setElapsedSeconds(0)
 
     const userMessage: Message = {
       id: Date.now(),
@@ -105,29 +156,36 @@ export default function Home() {
       role: 'user',
     }
 
-    const loadingMessage: Message = {
-      id: Date.now() + 1,
+    const assistantId = Date.now() + 1
+    const assistantMessage: Message = {
+      id: assistantId,
       text: '',
       role: 'assistant',
-      isLoading: true,
+      isStreaming: true,
     }
 
-    setMessages(prev => [...prev, userMessage, loadingMessage])
+    setMessages(prev => [...prev, userMessage, assistantMessage])
     setInput('')
-    if (inputRef.current) {
-      inputRef.current.style.height = 'auto'
-    }
 
-    const startTime = Date.now()
+    const requestStart = Date.now()
+    let fullText = ''
+    let tokenCount = 0
 
     try {
-      // Build conversation history
-      const chatMessages = messages
-        .filter(m => !m.isLoading)
-        .map(m => ({ role: m.role, content: m.text }))
+      const chatMessages: { role: string; content: string }[] = [
+        {
+          role: 'system',
+          content: 'You are a friendly assistant. Be concise. When using markdown, ensure all formatting is complete - close all **bold**, *italic*, and ``` code blocks properly. Separate code from explanations.'
+        }
+      ]
+
+      // Add conversation history
+      messages
+        .filter(m => !m.isStreaming)
+        .forEach(m => chatMessages.push({ role: m.role, content: m.text }))
       chatMessages.push({ role: 'user', content: messageText })
 
-      const res = await fetch(`${backendUrl}/v1/chat/completions`, {
+      const res = await fetch(`${API_BASE}/v1/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -143,7 +201,6 @@ export default function Home() {
       if (!reader) throw new Error('No reader')
 
       const decoder = new TextDecoder()
-      let fullText = ''
 
       while (true) {
         const { done, value } = await reader.read()
@@ -160,165 +217,100 @@ export default function Home() {
           try {
             const json = JSON.parse(data)
             const content = json.choices?.[0]?.delta?.content || ''
-            fullText += content
+            if (content) {
+              fullText += content
+              tokenCount++
 
-            setMessages(prev => prev.map(msg =>
-              msg.id === loadingMessage.id
-                ? { ...msg, text: fullText }
-                : msg
-            ))
+              setMessages(prev => prev.map(msg =>
+                msg.id === assistantId
+                  ? { ...msg, text: fullText }
+                  : msg
+              ))
+            }
           } catch {}
         }
       }
 
-      const elapsedMs = Date.now() - startTime
+      const elapsedMs = Date.now() - requestStart
       setMessages(prev => prev.map(msg =>
-        msg.id === loadingMessage.id
-          ? { ...msg, isLoading: false, elapsedMs }
+        msg.id === assistantId
+          ? { ...msg, isStreaming: false, elapsedMs, tokenCount }
           : msg
       ))
     } catch (e) {
       setMessages(prev => prev.map(msg =>
-        msg.id === loadingMessage.id
-          ? { ...msg, text: `Error: ${e instanceof Error ? e.message : 'Unknown'}`, isLoading: false }
+        msg.id === assistantId
+          ? { ...msg, text: `Error: ${e instanceof Error ? e.message : 'Unknown'}`, isStreaming: false }
           : msg
       ))
     }
 
     setIsGenerating(false)
-    isSubmittingRef.current = false
+    startTimeRef.current = null
     inputRef.current?.focus()
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      sendMessage()
-    }
+  const clearChat = () => {
+    setMessages([])
   }
 
-  const saveBackendUrl = () => {
-    if (backendInput) {
-      // Normalize URL (remove trailing slash)
-      const normalized = backendInput.replace(/\/$/, '')
-      setBackendUrl(normalized)
-      localStorage.setItem(STORAGE_KEY, normalized)
-    }
-    setShowBackendModal(false)
+  const copyToClipboard = useCallback((text: string) => {
+    navigator.clipboard.writeText(text)
+  }, [])
+
+  const getStatusClass = () => {
+    if (!health) return 'error'
+    if (!health.ready) return 'loading'
+    return ''
   }
 
-  // Timer for loading messages
-  const [, setTick] = useState(0)
-  useEffect(() => {
-    if (!isGenerating) return
-    const interval = setInterval(() => setTick(t => t + 1), 100)
-    return () => clearInterval(interval)
-  }, [isGenerating])
+  const getStatusText = () => {
+    if (!health) return 'Connecting...'
+    if (!health.ready) {
+      const stage = health.stage
+      if (stage === 'downloading') return 'Downloading...'
+      if (stage === 'loading') return 'Loading GPU...'
+      return 'Starting...'
+    }
+    return health.model.split('/').pop() || 'Ready'
+  }
 
-  const getElapsedSeconds = (msg: Message) => {
-    if (!msg.isLoading) return 0
-    const loadingMsg = messages.find(m => m.id === msg.id && m.isLoading)
-    if (!loadingMsg) return 0
-    // Find when this message was created (its ID is timestamp)
-    return Math.floor((Date.now() - msg.id) / 1000)
+  const getPlaceholder = () => {
+    if (!health?.ready) return 'Loading model...'
+    if (isGenerating) return 'Generating...'
+    return 'Ask anything...'
   }
 
   return (
     <main>
-      {/* Backend URL Modal */}
-      {showBackendModal && (
-        <div className="modal-overlay" onClick={() => setShowBackendModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <h2>Connect Backend</h2>
-            <p>
-              Enter your vmux preview URL. Start a backend with:<br/>
-              <code style={{ fontSize: 12, opacity: 0.7 }}>
-                vmux run --gpu A10G -dp 8000 python backend.py
-              </code>
-            </p>
-            <input
-              type="url"
-              value={backendInput}
-              onChange={e => setBackendInput(e.target.value)}
-              placeholder="https://your-preview-url.vmux.dev"
-              onKeyDown={e => e.key === 'Enter' && saveBackendUrl()}
-              autoFocus
-            />
-            <div className="modal-actions">
-              <button className="modal-btn secondary" onClick={() => setShowBackendModal(false)}>
-                Cancel
-              </button>
-              <button className="modal-btn primary" onClick={saveBackendUrl}>
-                Connect
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Header */}
       <div className="header">
         <div className="header-left">
-          <span
-            className={`status-dot ${!backendUrl ? 'error' : backendReady ? '' : 'loading'}`}
-            onClick={() => setShowBackendModal(true)}
-            style={{ cursor: 'pointer' }}
-          />
-          <span
-            className="model-name"
-            onClick={() => setShowBackendModal(true)}
-            style={{ cursor: 'pointer' }}
-          >
-            {!backendUrl ? 'No backend' : backendReady ? 'Connected' : 'Connecting...'}
-          </span>
+          <span className={`status-dot ${getStatusClass()}`} />
+          <span className="model-name">{getStatusText()}</span>
         </div>
-        <div className="header-right">
-          {MODELS.map(model => (
-            <button
-              key={model.id}
-              className={`model-btn ${selectedModel === model.id ? 'active' : ''}`}
-              onClick={() => setSelectedModel(model.id)}
-            >
-              {model.name}
-            </button>
-          ))}
-        </div>
+        {messages.length > 0 && (
+          <button className="clear-btn" onClick={clearChat}>
+            Clear chat
+          </button>
+        )}
       </div>
 
       {/* Messages */}
       <div className="messages">
         {messages.length === 0 ? (
           <div className="empty-state">
-            <h1>vmux chat</h1>
-            <p>Open-source LLMs on GPU</p>
+            <h1>vmux Chat</h1>
+            <p>{health?.ready ? health.model.split('/').pop() : 'Loading model...'}</p>
           </div>
         ) : (
           messages.map(msg => (
-            <div key={msg.id} className={`msg-row ${msg.role}`}>
-              <div className={`bubble ${msg.role} ${msg.isLoading ? 'loading' : ''}`}>
-                {msg.isLoading && !msg.text ? (
-                  <div className="loading-content">
-                    <div className="loading-text">
-                      <span>generating...</span>
-                      <span>{getElapsedSeconds(msg)}s</span>
-                    </div>
-                    <div className="progress-bar">
-                      <div
-                        className="progress-fill"
-                        style={{ width: `${Math.min(95, getElapsedSeconds(msg) * 3)}%` }}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    {msg.text}
-                    {msg.elapsedMs && !msg.isLoading && (
-                      <div className="elapsed">{(msg.elapsedMs / 1000).toFixed(1)}s</div>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
+            <MessageBubble
+              key={msg.id}
+              msg={msg}
+              elapsedSeconds={msg.isStreaming ? elapsedSeconds : undefined}
+              onCopy={copyToClipboard}
+            />
           ))
         )}
         <div ref={messagesEndRef} />
@@ -332,7 +324,7 @@ export default function Home() {
               key={i}
               className="suggestion-btn"
               onClick={() => sendMessage(s)}
-              disabled={isGenerating || !backendReady}
+              disabled={isGenerating || !health?.ready}
             >
               {s}
             </button>
@@ -344,21 +336,30 @@ export default function Home() {
       <div className="input-area">
         <div className="input-row">
           <div className="input-wrapper">
-            <textarea
+            <input
               ref={inputRef}
+              type="text"
               value={input}
-              onChange={handleInputChange}
-              onKeyDown={handleKeyDown}
-              placeholder={isGenerating ? 'Generating...' : 'Message'}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  sendMessage()
+                }
+              }}
               className="input-field"
-              rows={1}
-              disabled={isGenerating}
+              disabled={!health?.ready}
             />
+            {!input && (
+              <div className="input-placeholder">
+                {getPlaceholder()}
+              </div>
+            )}
           </div>
           <button
             className="send-btn"
             onClick={() => sendMessage()}
-            disabled={!input.trim() || isGenerating}
+            disabled={!input.trim() || isGenerating || !health?.ready}
           >
             ↑
           </button>
