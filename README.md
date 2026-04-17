@@ -13,43 +13,47 @@ vmux login
 
 ```bash
 # Hello world
-vmux run python hello.py
+vmux run hello
 
 # Web server with preview URL
-vmux run -dp 8000 python web_server.py
+vmux run web
 
 # GPU compute (Modal)
-vmux run --provider modal --gpu T4 python gpu_hello.py
+vmux run gpu
 ```
 
 ## Examples
 
-All web servers honor `PORT`, so `-p/-dp` works everywhere.
+The root `vmux.toml` declares named targets for the single-file examples. It sets `setup = "none"` for those targets so vmux does not Railpack-plan this whole mixed examples repo. Scripts with PEP 723 dependency blocks still install through `uv run`.
+
+Project directories can declare their own `vmux.toml`. `waves/` and `llm-chat/` use local Railpack plans because each directory has a real project manifest.
+
+All web servers honor `PORT`, so preview ports work everywhere.
 
 ### Cloudflare (fast start)
 
 | Example | What it is | Command |
 |---------|------------|---------|
-| `hello.py` | Sanity check | `vmux run python hello.py` |
-| `web_server.py` | FastAPI hello + preview URL | `vmux run -dp 8000 python web_server.py` |
-| `background_job.py` | Long-running logs | `vmux run -d python background_job.py` |
-| `burrow.py` | WebSocket + SSE dashboard | `vmux run -dp 8000 python burrow.py` |
-| `collab-terminal/` | Shared terminal over WS | `vmux run -dp 8000 python collab-terminal/server.py` |
-| `gradio_chat.py` | Gradio UI | `vmux run -dp 7860 python gradio_chat.py` |
-| `waves/` | Bun + Vite demo | `cd waves && vmux run -dp 5173 bun run dev` |
+| `hello.py` | Sanity check | `vmux run hello` |
+| `web_server.py` | FastAPI hello + preview URL | `vmux run web` |
+| `background_job.py` | Long-running logs | `vmux run background` |
+| `burrow.py` | WebSocket + SSE dashboard | `vmux run burrow` |
+| `collab-terminal/` | Shared terminal over WS | `vmux run collab` |
+| `gradio_chat.py` | Gradio UI | `vmux run gradio` |
+| `waves/` | Bun + Vite demo | `cd waves && vmux run dev` |
 
 ### Modal (GPU + heavy deps)
 
 | Example | What it is | Command |
 |---------|------------|---------|
-| `gpu_hello.py` | CUDA sanity check | `vmux run --provider modal --gpu T4 python gpu_hello.py` |
-| `jupyter.py` | JupyterLab (torch/jax baked in) | `vmux run --provider modal --gpu T4 -dp 8888 python jupyter.py` |
-| `llm-chat/` | GPT-OSS chat UI (A10G+) | `vmux run --provider modal --gpu A10G -dp 8000 python llm-chat/main.py` |
-| `vllm_server.py` | OpenAI-compatible API | `vmux run --provider modal --gpu A10G -dp 8080 python vllm_server.py` |
-| `whisper_api.py` | Audio transcription | `vmux run --provider modal --gpu T4 -dp 8000 python whisper_api.py` |
-| `embeddings_api.py` | RAG embeddings | `vmux run --provider modal --gpu T4 -dp 8000 python embeddings_api.py` |
-| `image_gen.py` | SDXL Turbo | `vmux run --provider modal --gpu A10G -dp 8000 python image_gen.py` |
-| `ollama_chat.py` | Ollama + Llama | `vmux run --provider modal --gpu T4 python ollama_chat.py` |
+| `gpu_hello.py` | CUDA sanity check | `vmux run gpu` |
+| `jupyter.py` | JupyterLab (torch/jax baked in) | `vmux run jupyter` |
+| `llm-chat/` | GPT-OSS chat UI (A10G+) | `cd llm-chat && vmux run chat` |
+| `vllm_server.py` | OpenAI-compatible API | `vmux run vllm` |
+| `whisper_api.py` | Audio transcription | `vmux run whisper` |
+| `embeddings_api.py` | RAG embeddings | `vmux run embeddings` |
+| `image_gen.py` | SDXL Turbo | `vmux run image` |
+| `ollama_chat.py` | Ollama + Llama | `vmux run ollama` |
 
 ## Patterns
 

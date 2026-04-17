@@ -1,0 +1,28 @@
+default_target = "chat"
+
+[targets.chat]
+command = "python main.py"
+provider = "modal"
+gpu = "A10G"
+ports = [8000]
+setup = "railpack"
+
+[targets.qwen]
+command = "python main.py"
+provider = "modal"
+gpu = "T4"
+ports = [8000]
+setup = "railpack"
+
+[targets.qwen.env]
+MODEL = "Qwen/Qwen2.5-3B-Instruct"
+
+[targets.llama]
+command = "python main.py"
+provider = "modal"
+gpu = "A100"
+ports = [8000]
+setup = "railpack"
+
+[targets.llama.env]
+MODEL = "meta-llama/Llama-3.1-70B-Instruct"

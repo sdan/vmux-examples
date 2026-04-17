@@ -1,0 +1,6 @@
+default_target = "dev"
+
+[targets.dev]
+command = "bun run dev"
+ports = [5173]
+setup = "railpack"

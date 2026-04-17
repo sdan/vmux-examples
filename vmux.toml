@@ -1,0 +1,76 @@
+default_target = "web"
+
+[targets.hello]
+command = "python hello.py"
+setup = "none"
+
+[targets.web]
+command = "python web_server.py"
+ports = [8000]
+setup = "none"
+
+[targets.background]
+command = "python background_job.py"
+setup = "none"
+
+[targets.burrow]
+command = "python burrow.py"
+ports = [8000]
+setup = "none"
+
+[targets.collab]
+command = "python collab-terminal/server.py"
+ports = [8000]
+setup = "none"
+
+[targets.gradio]
+command = "python gradio_chat.py"
+ports = [7860]
+setup = "none"
+
+[targets.gpu]
+command = "python --no-uv gpu_hello.py"
+provider = "modal"
+gpu = "T4"
+setup = "none"
+
+[targets.jupyter]
+command = "python jupyter.py"
+provider = "modal"
+gpu = "T4"
+ports = [8888]
+setup = "none"
+
+[targets.vllm]
+command = "python vllm_server.py"
+provider = "modal"
+gpu = "A10G"
+ports = [8080]
+setup = "none"
+
+[targets.whisper]
+command = "python whisper_api.py"
+provider = "modal"
+gpu = "T4"
+ports = [8000]
+setup = "none"
+
+[targets.embeddings]
+command = "python embeddings_api.py"
+provider = "modal"
+gpu = "T4"
+ports = [8000]
+setup = "none"
+
+[targets.image]
+command = "python image_gen.py"
+provider = "modal"
+gpu = "A10G"
+ports = [8000]
+setup = "none"
+
+[targets.ollama]
+command = "python ollama_chat.py"
+provider = "modal"
+gpu = "T4"
+setup = "none"
